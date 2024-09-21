@@ -1,0 +1,36 @@
+Question 3
+
+# models.py
+from django.db import models, transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.db import IntegrityError
+
+# Define a model
+class MyModel(models.Model):
+    name = models.CharField(max_length=100)
+
+# Another model that will raise an IntegrityError
+class AnotherModel(models.Model):
+    my_model = models.ForeignKey(MyModel, on_delete=models.CASCADE)
+    unique_field = models.CharField(max_length=100, unique=True)
+
+# Signal receiver
+@receiver(post_save, sender=MyModel)
+def my_signal_receiver(sender, instance, created, **kwargs):
+    # Attempt to create a new instance that will raise an IntegrityError
+    print(f"Creating AnotherModel instance for {instance.name}.")
+    AnotherModel.objects.create(my_model=instance, unique_field="duplicate")
+
+# In Django shell or views.py
+def save_instance():
+    try:
+        with transaction.atomic():
+            new_instance = MyModel(name="Test Instance")
+            new_instance.save()  # This will trigger the post_save signal
+            print("MyModel instance saved.")
+    except IntegrityError:
+        print("Transaction rolled back due to IntegrityError.")
+
+# Call the save_instance function to demonstrate the behavior
+save_instance()
